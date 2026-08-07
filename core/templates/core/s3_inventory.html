@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Inventory - Cloud Storage Optimizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .navbar h1 {
+            font-size: 24px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .btn-back {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .btn-back:hover {
+            background: #764ba2;
+        }
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .header h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .stat {
+            font-size: 14px;
+        }
+        .stat-label {
+            color: #999;
+            font-weight: 600;
+        }
+        .stat-value {
+            font-size: 24px;
+            color: #667eea;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+        .files-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .files-section h3 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .files-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .files-table th {
+            background: #f9f9f9;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #eee;
+            font-size: 14px;
+        }
+        .files-table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>Cloud Storage Optimizer</h1>
+        <div>
+            <span>{{ user.username }}</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <a href="{% url 'dashboard' %}" class="btn-back">← Back to Dashboard</a>
+
+        <div class="header">
+            <h2>S3 Inventory</h2>
+            <p>All files tracked in the system</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Total Storage</div>
+                    <div class="stat-value">{{ total_storage_gb }} GB</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Total Files</div>
+                    <div class="stat-value">{{ total_file_count }}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Duplicates</div>
+                    <div class="stat-value" style="color: #ff6b6b;">{{ duplicate_count }} ({{ duplicate_storage_gb }} GB)</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Stale Files</div>
+                    <div class="stat-value" style="color: #ffa94d;">{{ stale_count }} ({{ stale_storage_gb }} GB)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="files-section">
+            <h3>Files in System</h3>
+            {% if files %}
+                <table class="files-table">
+                    <thead>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Size (GB)</th>
+                            <th>Project</th>
+                            <th>S3 Key</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                            <tr>
+                                <td>{{ file.file_name }}</td>
+                                <td>{{ file.file_size|filesizeformat }}</td>
+                                <td>{{ file.project.project_name }}</td>
+                                <td style="font-size: 12px; color: #666;">{{ file.s3_key }}</td>
+                                <td>{{ file.created_at|date:"M d, Y" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">
+                    <p>No files in inventory yet.</p>
+                </div>
+            {% endif %}
+        </div>
+    <!-- Duplicate Files Section -->
+        <div class="files-section" style="margin-top: 30px;">
+            <h3>Duplicate Files (Potential Savings)</h3>
+            {% if duplicate_files %}
+                <table class="files-table">
+                    <thead>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Size (GB)</th>
+                            <th>Project</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in duplicate_files %}
+                            <tr style="background: #ffe8e8;">
+                                <td>{{ file.file_name }}</td>
+                                <td>{{ file.file_size|filesizeformat }}</td>
+                                <td>{{ file.project.project_name }}</td>
+                                <td>{{ file.created_at|date:"M d, Y" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">
+                    <p>No duplicate files found.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Stale Files Section -->
+        <div class="files-section" style="margin-top: 30px;">
+            <h3>Stale Files (Archival Candidates)</h3>
+            {% if stale_files %}
+                <table class="files-table">
+                    <thead>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Size (GB)</th>
+                            <th>Project</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in stale_files %}
+                            <tr style="background: #fff9e8;">
+                                <td>{{ file.file_name }}</td>
+                                <td>{{ file.file_size|filesizeformat }}</td>
+                                <td>{{ file.project.project_name }}</td>
+                                <td>{{ file.created_at|date:"M d, Y" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">
+                    <p>No stale files found.</p>
+                </div>
+            {% endif %}
+        </div>
+</body>
+</html>

@@ -163,3 +163,46 @@ def project_creation_view(request):
     
     context = {'form': form}
     return render(request, 'core/project_creation.html', context)
+
+@require_http_methods(["GET"])
+@login_required(login_url='login')
+def s3_inventory_view(request):
+    """
+    Display S3 Inventory files ingested from mock data.
+    Shows all files, duplicates, and stale files.
+    """
+    
+    # Get all files, ordered by file size (largest first)
+    all_files = File.objects.all().order_by('-file_size')
+    duplicate_files = all_files.filter(is_duplicate=True)
+    stale_files = all_files.filter(is_stale=True)
+    
+    # Calculate total storage
+    from django.db.models import Sum
+    total_storage_bytes = all_files.aggregate(Sum('file_size'))['file_size__sum'] or 0
+    total_storage_gb = round(total_storage_bytes / (1024 ** 3), 2)
+    
+    # Calculate duplicate storage (wasted space)
+    duplicate_storage_bytes = duplicate_files.aggregate(Sum('file_size'))['file_size__sum'] or 0
+    duplicate_storage_gb = round(duplicate_storage_bytes / (1024 ** 3), 2)
+    
+    # Calculate stale storage
+    stale_storage_bytes = stale_files.aggregate(Sum('file_size'))['file_size__sum'] or 0
+    stale_storage_gb = round(stale_storage_bytes / (1024 ** 3), 2)
+    
+    # Count files
+    total_file_count = all_files.count()
+    
+    context = {
+        'files': all_files,
+        'duplicate_files': duplicate_files,
+        'stale_files': stale_files,
+        'total_storage_gb': total_storage_gb,
+        'duplicate_storage_gb': duplicate_storage_gb,
+        'stale_storage_gb': stale_storage_gb,
+        'total_file_count': total_file_count,
+        'duplicate_count': duplicate_files.count(),
+        'stale_count': stale_files.count(),
+    }
+    
+    return render(request, 'core/s3_inventory.html', context)
